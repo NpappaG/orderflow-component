@@ -5,6 +5,8 @@ type FlowControlsProps = {
   onToggleStreaming: () => void;
   windowSeconds: number;
   onWindowChange: (value: number) => void;
+  separationScale?: number;
+  onSeparationChange?: (value: number) => void;
 };
 
 export function FlowControls({
@@ -12,6 +14,8 @@ export function FlowControls({
   onToggleStreaming,
   windowSeconds,
   onWindowChange,
+  separationScale,
+  onSeparationChange,
 }: FlowControlsProps) {
   return (
     <div className="flex flex-col gap-4 rounded-2xl border border-white/10 bg-slate-950/80 p-4 text-sm shadow-lg">
@@ -42,6 +46,22 @@ export function FlowControls({
           value={windowSeconds}
           onChange={(e) => onWindowChange(Number(e.target.value))}
           className="accent-emerald-400"
+        />
+      </div>
+
+      <div className="hidden flex-col gap-2 md:flex">
+        <div className="flex items-center justify-between text-xs text-white/70">
+          <span>Separation (desktop only)</span>
+          <span>{(separationScale ?? 1).toFixed(1)}×</span>
+        </div>
+        <input
+          type="range"
+          min={0.5}
+          max={10}
+          step={0.1}
+          value={separationScale ?? 1}
+          onChange={(e) => onSeparationChange?.(Number(e.target.value))}
+          className="accent-sky-400"
         />
       </div>
     </div>

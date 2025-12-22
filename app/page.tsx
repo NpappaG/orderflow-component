@@ -12,6 +12,7 @@ const demoBuyShare = 0.58;
 export default function Home() {
   const [streaming, setStreaming] = useState(true);
   const [windowSeconds, setWindowSeconds] = useState(45);
+  const [separationScale, setSeparationScale] = useState(5);
   const [stats, setStats] = useState<OrderflowStats>({
     buyShare: demoBuyShare,
     sellShare: 1 - demoBuyShare,
@@ -47,9 +48,10 @@ export default function Home() {
             <div className="flex flex-col items-center gap-4 md:flex-row md:items-center">
               <div className="aspect-[16/9] w-full md:flex-1">
                 <OrderFlowCanvas
-                  label="Orderflow canvas"
+                  label="Orderflow lookback:"
                   streaming={streaming}
                   windowSeconds={windowSeconds}
+                  separationScale={separationScale}
                   onStatsChange={(next) => setStats(next)}
                 />
               </div>
@@ -65,6 +67,8 @@ export default function Home() {
                 onToggleStreaming={() => setStreaming((s) => !s)}
                 windowSeconds={windowSeconds}
                 onWindowChange={setWindowSeconds}
+                separationScale={separationScale}
+                onSeparationChange={setSeparationScale}
               />
             </div>
             <div className="rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-white/80">

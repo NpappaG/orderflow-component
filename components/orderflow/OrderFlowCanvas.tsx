@@ -30,7 +30,7 @@ const totalFlowHeight = 80; // combined stack height (pixels) at origin
 const minBandHeight = 6;
 const maxParticles = 400;
 const emaAlpha = 0.2; // smoothing for branch thickness
-const ribbonSamples = 28;
+const ribbonSamples = 80;
 
 type FlowGeometry = {
   origin: { x: number; y: number };
@@ -40,6 +40,12 @@ type FlowGeometry = {
 };
 
 const easeOutCubic = (t: number) => 1 - Math.pow(1 - t, 3);
+const sigmoidNormalized = (t: number) => {
+  const sig = (x: number) => 1 / (1 + Math.exp(-10 * (x - 0.5)));
+  const s0 = sig(0);
+  const s1 = sig(1);
+  return (sig(t) - s0) / (s1 - s0);
+};
 
 export function OrderFlowCanvas({
   label = "Synthetic stream",
@@ -165,17 +171,19 @@ export function OrderFlowCanvas({
 
     const cssWidth = rect.width;
     const isMobile = cssWidth < 640;
-    const leftPad = cssWidth * (isMobile ? 0.16 : 0.12);
+    const leftPad = cssWidth * (isMobile ? 0.1 : 0.12);
     const rightPad = cssWidth * (isMobile ? 0.28 : 0.22); // reserve space for chips
     const originX = leftPad;
-    const endX = Math.max(originX + 100, cssWidth - rightPad);
+    const endX = Math.max(originX + 120, cssWidth - rightPad);
     const span = endX - originX;
+    const baseSeparation = Math.max(8, totalFlowHeight * 0.14); // pixels
+    const separationMax = baseSeparation * separationScale;
 
     geometryRef.current = {
       origin: { x: originX, y: rect.height * 0.5 },
       endX,
       separationX: span * 0.2, // short ramp to reach full separation
-      separationMax: totalFlowHeight * 0.1 * separationScale, // ~10% gap of total stack height
+      separationMax,
     };
   };
 
@@ -184,8 +192,15 @@ export function OrderFlowCanvas({
     if (!geom) return null;
     const { origin, endX, separationX, separationMax } = geom;
     const x = origin.x + (endX - origin.x) * t;
-    const tSep = Math.max(0, Math.min(1, (x - origin.x) / separationX));
-    const sep = Math.min(separationMax, easeOutCubic(tSep) * separationMax);
+    // Piecewise: 0-0.25 glued, 0.25-0.75 sigmoid fan-out, 0.75-1 constant separation
+    let sep = 0;
+    if (t >= 0.25 && t <= 0.75) {
+      const localT = (t - 0.25) / 0.5; // 0..1 over middle span
+      const eased = sigmoidNormalized(localT);
+      sep = eased * separationMax;
+    } else if (t > 0.75) {
+      sep = separationMax;
+    }
 
     const hBuy = Math.max(minBandHeight, totalFlowHeight * buyShare);
     const hSell = Math.max(minBandHeight, totalFlowHeight - hBuy);
@@ -251,8 +266,8 @@ export function OrderFlowCanvas({
     ctx.fill();
 
     // Overlay stats chips near ribbons
-    const midSample = calcEdgesAt(0.4, buyShare);
-    if (midSample) {
+    const tipSample = calcEdgesAt(1, buyShare);
+    if (tipSample) {
       const formatter = new Intl.NumberFormat(undefined, {
         style: "percent",
         minimumFractionDigits: 1,
@@ -306,11 +321,11 @@ export function OrderFlowCanvas({
         ctx.restore();
       };
 
-      const buyY = midSample.buyCenter;
-      const sellY = midSample.sellCenter;
+      const buyY = tipSample.buyCenter;
+      const sellY = tipSample.sellCenter;
       const cssWidth = ctx.canvas.width / (window.devicePixelRatio || 1);
-      const chipX =
-        (geometryRef.current?.endX ?? midSample.x) + cssWidth * 0.02;
+      const tipX = geometryRef.current?.endX ?? tipSample.x;
+      const chipX = tipX + cssWidth * 0.03;
       drawChip(
         chipX,
         buyY,
@@ -396,12 +411,17 @@ export function OrderFlowCanvas({
     };
   }, []);
 
+  useEffect(() => {
+    // Recompute geometry when separation changes (desktop control)
+    resize();
+  }, [separationScale]);
+
   return (
     <div className="relative h-full w-full overflow-hidden rounded-2xl border border-white/10 bg-slate-900/80 shadow-lg">
       <canvas ref={canvasRef} className="h-full w-full" />
       <div className="pointer-events-none absolute inset-x-3 top-3 flex items-center justify-between text-[11px] font-semibold text-white/70">
         <span className="rounded-full border border-white/15 px-2 py-[2px] backdrop-blur-sm">
-          {label}
+          {label} · {windowSeconds}s
         </span>
         <span className="rounded-full border border-white/15 px-2 py-[2px] backdrop-blur-sm">
           {streaming ? "Streaming" : "Paused"}
