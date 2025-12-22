@@ -9,6 +9,7 @@ type OrderFlowCanvasProps = {
   streaming?: boolean;
   windowSeconds: number;
   onStatsChange?: (stats: OrderflowStats) => void;
+  separationScale?: number;
 };
 
 type Particle = {
@@ -28,7 +29,6 @@ const particleSellColor = "rgba(244, 6, 6, 0.92)"; // reuse red hue
 const totalFlowHeight = 80; // combined stack height (pixels) at origin
 const minBandHeight = 6;
 const maxParticles = 400;
-const maxOrderBuffer = 2000;
 const emaAlpha = 0.2; // smoothing for branch thickness
 const ribbonSamples = 28;
 
@@ -46,6 +46,7 @@ export function OrderFlowCanvas({
   streaming = true,
   windowSeconds,
   onStatsChange,
+  separationScale = 1,
 }: OrderFlowCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const particlesRef = useRef<Particle[]>([]);
@@ -63,16 +64,8 @@ export function OrderFlowCanvas({
       queueRef.current.push(order);
       if (order.side === "buy") totalsRef.current.buy += order.volume;
       else totalsRef.current.sell += order.volume;
-      if (queueRef.current.length > maxOrderBuffer) {
-        const excess = queueRef.current.splice(
-          0,
-          queueRef.current.length - maxOrderBuffer
-        );
-        for (const dropped of excess) {
-          if (dropped.side === "buy") totalsRef.current.buy -= dropped.volume;
-          else totalsRef.current.sell -= dropped.volume;
-        }
-      }
+      totalsRef.current.buy = Math.max(0, totalsRef.current.buy);
+      totalsRef.current.sell = Math.max(0, totalsRef.current.sell);
       spawnParticle(order);
       updateStats();
     },
@@ -121,6 +114,8 @@ export function OrderFlowCanvas({
       if (!expired) break;
       if (expired.side === "buy") totalsRef.current.buy -= expired.volume;
       else totalsRef.current.sell -= expired.volume;
+      totalsRef.current.buy = Math.max(0, totalsRef.current.buy);
+      totalsRef.current.sell = Math.max(0, totalsRef.current.sell);
     }
   };
 
@@ -134,7 +129,7 @@ export function OrderFlowCanvas({
         else sell += o.volume;
       }
     }
-    totalsRef.current = { buy, sell };
+    totalsRef.current = { buy: Math.max(0, buy), sell: Math.max(0, sell) };
   };
 
   const updateStats = (force = false) => {
@@ -168,11 +163,19 @@ export function OrderFlowCanvas({
     ctx.resetTransform();
     ctx.scale(dpr, dpr);
 
+    const cssWidth = rect.width;
+    const isMobile = cssWidth < 640;
+    const leftPad = cssWidth * (isMobile ? 0.16 : 0.12);
+    const rightPad = cssWidth * (isMobile ? 0.28 : 0.22); // reserve space for chips
+    const originX = leftPad;
+    const endX = Math.max(originX + 100, cssWidth - rightPad);
+    const span = endX - originX;
+
     geometryRef.current = {
-      origin: { x: rect.width * 0.12, y: rect.height * 0.5 },
-      endX: rect.width * 0.9,
-      separationX: rect.width * 0.12, // short ramp to reach full separation
-      separationMax: totalFlowHeight * 0.5, // ~10% gap of total stack height
+      origin: { x: originX, y: rect.height * 0.5 },
+      endX,
+      separationX: span * 0.2, // short ramp to reach full separation
+      separationMax: totalFlowHeight * 0.1 * separationScale, // ~10% gap of total stack height
     };
   };
 
@@ -246,6 +249,83 @@ export function OrderFlowCanvas({
     ctx.closePath();
     ctx.fillStyle = sellColor;
     ctx.fill();
+
+    // Overlay stats chips near ribbons
+    const midSample = calcEdgesAt(0.4, buyShare);
+    if (midSample) {
+      const formatter = new Intl.NumberFormat(undefined, {
+        style: "percent",
+        minimumFractionDigits: 1,
+        maximumFractionDigits: 1,
+      });
+      const buyPct = formatter.format(buyShare);
+      const sellPct = formatter.format(1 - buyShare);
+      const buyVol = totalsRef.current.buy;
+      const sellVol = totalsRef.current.sell;
+
+      const padX = 8;
+      const gap = 10;
+      const isMobile = ctx.canvas.width / (window.devicePixelRatio || 1) < 640;
+      const headlineSize = isMobile ? 12 : 14;
+      const subSize = isMobile ? 11 : 12;
+      const chipHeight = isMobile ? 28 : 32;
+
+      const drawChip = (
+        x: number,
+        y: number,
+        text: string,
+        subtext: string,
+        color: string
+      ) => {
+        ctx.save();
+        ctx.font = `${headlineSize}px 'Inter', system-ui, -apple-system`;
+        ctx.textBaseline = "middle";
+        const textWidth = ctx.measureText(text).width;
+        ctx.font = `${subSize}px 'Inter', system-ui, -apple-system`;
+        const subWidth = ctx.measureText(subtext).width;
+        const w = Math.max(textWidth, subWidth) + padX * 2 + 6;
+        const h = chipHeight;
+        const r = 8;
+        ctx.fillStyle = color;
+        ctx.globalAlpha = 0.85;
+        ctx.beginPath();
+        ctx.moveTo(x, y - h / 2);
+        ctx.lineTo(x + w - r, y - h / 2);
+        ctx.quadraticCurveTo(x + w, y - h / 2, x + w, y - h / 2 + r);
+        ctx.lineTo(x + w, y + h / 2 - r);
+        ctx.quadraticCurveTo(x + w, y + h / 2, x + w - r, y + h / 2);
+        ctx.lineTo(x, y + h / 2);
+        ctx.closePath();
+        ctx.fill();
+        ctx.fillStyle = "#0a0a0a";
+        ctx.globalAlpha = 1;
+        ctx.font = `${headlineSize}px 'Inter', system-ui, -apple-system`;
+        ctx.fillText(text, x + padX + 2, y - 6);
+        ctx.font = `${subSize}px 'Inter', system-ui, -apple-system`;
+        ctx.fillText(subtext, x + padX + 2, y + 10);
+        ctx.restore();
+      };
+
+      const buyY = midSample.buyCenter;
+      const sellY = midSample.sellCenter;
+      const cssWidth = ctx.canvas.width / (window.devicePixelRatio || 1);
+      const chipX =
+        (geometryRef.current?.endX ?? midSample.x) + cssWidth * 0.02;
+      drawChip(
+        chipX,
+        buyY,
+        `Buy ${buyPct}`,
+        `${Math.round(buyVol)} vol`,
+        "rgba(74, 222, 128, 0.8)"
+      );
+      drawChip(
+        chipX,
+        sellY,
+        `Sell ${sellPct}`,
+        `${Math.round(sellVol)} vol`,
+        "rgba(248, 113, 113, 0.8)"
+      );
+    }
   };
 
   const drawFrame = () => {
