@@ -25,24 +25,24 @@ Real-time, canvas-based orderflow bifurcation inspired by Sankey diagrams. The t
 
 ## Architecture Outline
 
-- **React shell**: wraps controls (pause/resume, window slider) and hosts the canvas element.
-- **RxJS stream**: adapts the provided hook, emits orders, supports pause/resume, and computes rolling buy/sell volume share.
-- **Canvas layer**: owns the render loop, bezier curves, easing, and particle pool; reads stream state via refs to avoid re-renders.
+- **React shell**: wraps controls (pause/resume, window slider, desktop separation slider) and hosts the canvas element.
+- **RxJS stream**: adapts the provided helper to emit synthetic orders; pause/resume; rolling aggregation happens in-memory with EMA smoothing.
+- **Canvas layer**: owns the render loop, ribbon geometry/easing, particle pool, and inline stats chips; reads stream state via refs to avoid re-renders.
 
 ---
 
 ## Behavior & Interactions
 
-- **Flow model**: One source on the left that splits into Buy/Sell branches on the right. Branch thickness tracks recent executed volume share.
-- **Order particles**: Each order animates through the channel, then curves into its branch. Particle radius uses a log scale on volume.
-- **Temporal window**: Rolling aggregation window (slider-driven nice-to-have) smooths the buy/sell proportions without losing immediacy.
-- **Sankey feel**: Start from a stacked origin where total width is conserved; buy/sell bands separate immediately and retain their proportional thickness, making imbalance legible without labels.
-- **Horizontal Sankey**: Origin is a vertical pillar whose total height encodes aggregate volume; buy/sell proportions are stacked segments. As flow moves right, a translated boundary separates the segments while their heights remain the sole carrier of proportion.
+- **Flow model**: Stacked origin on the left encodes buy/sell proportions; ribbons fan out horizontally via a sigmoid over the middle span, then run parallel. Width is conserved.
+- **Order particles**: Each order animates along the ribbon centerline; radius uses a log scale on volume; particle colors differ from ribbon fills.
+- **Temporal window**: Rolling aggregation window (slider-driven) smooths the buy/sell proportions with an EMA to reduce jitter.
+- **Sankey feel**: Glued first quarter, eased fan-out mid-span, steady separation in the last quarter; desktop separation slider scales the gap.
+- **Horizontal Sankey**: Origin is a vertical pillar (aggregate volume); buy/sell proportions are stacked segments; separation translates the boundary while heights carry proportion.
 - **Separation of concerns**:
-  - React hosts controls + canvas container.
-  - RxJS stream/hook ingests orders and exposes both particle events and rolling aggregates.
-  - Canvas layer owns drawing, easing, and bezier curves; it reads the latest stream state via refs.
-- **Performance**: Particle pool and capped concurrency to keep GC and CPU in check; branch thickness rendered separately from particles to stay legible.
+  - React hosts controls + canvas container and separation slider (desktop).
+  - RxJS stream/hook ingests synthetic orders; rolling aggregates computed in-memory with smoothing.
+  - Canvas layer owns ribbon geometry/easing, particle pool, and inline stats chips via refs.
+- **Performance**: Particle pool and capped concurrency to keep GC and CPU in check; ribbon sampling tuned (80 samples) for smooth edges; responsive padding for mobile vs desktop.
 
 ---
 
@@ -50,17 +50,17 @@ Real-time, canvas-based orderflow bifurcation inspired by Sankey diagrams. The t
 
 - Start with the provided `useOrderStream` helper from the problem statement (BehaviorSubject/Subject-based) to synthesize realistic traffic; keep this as the default mode for demos.
 - Normalize events into `OrderEvent` `{ id, side, volume, timestamp }` (extend as needed for animation state internally).
-- Rolling aggregates: RxJS `scan` + time-bucketed queue to compute buy/sell volume share over the chosen window; expose a smoothed EMA for branch thickness to avoid jitter.
-- Controls: pause/resume stream, tweak time window, optionally slow-mo for demos.
+- Rolling aggregates: in-memory queue with window cutoff; EMA smoothing on share to avoid jitter. Widening the window uses retained orders only (no backfill yet).
+- Controls: pause/resume stream, tweak time window, desktop separation slider; optionally add slow-mo for demos.
 
 ---
 
 ## Canvas Implementation Notes
 
-- Precompute bezier control points for the main channel and the two exits; interpolate particle positions with easing for enter/exit.
-- Maintain a small particle pool to keep GC pressure low under high-frequency streams.
-- Draw order density (branch thickness) separately from particles so proportions stay readable even when few particles are on screen.
-- Graceful degradation on low-powered devices: cap max concurrent particles and fall back to lower frame targets.
+- Ribbons are sampled edge paths with separation eased via a normalized sigmoid over the mid-span, then held steady.
+- Maintain a small particle pool; particles follow ribbon centerlines with eased motion.
+- Draw ribbons and particles separately so proportions stay readable even when few particles are on screen.
+- Responsive padding to avoid crowding on mobile; separation scaling available on desktop.
 
 ---
 

@@ -23,11 +23,11 @@ export default function Home() {
       <div className="mx-auto flex max-w-6xl flex-col gap-8 px-6 py-10">
         <header className="flex flex-col gap-3">
           <div className="flex flex-wrap items-center gap-3 text-xs uppercase tracking-[0.2em] text-white/60">
-            <span className="rounded-full bg-white/10 px-3 py-1">
+            <span className="min-w-0 rounded-full bg-white/10 px-3 py-1 break-words">
               <Link
                 href="https://github.com/NPappaG/orderflow-component"
                 target="_blank"
-                className="text-blue-500 hover:text-blue-600"
+                className="break-all text-blue-500 hover:text-blue-600"
               >
                 https://github.com/NPappaG/orderflow-component
               </Link>

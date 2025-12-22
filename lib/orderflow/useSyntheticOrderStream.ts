@@ -79,8 +79,6 @@ export const useOrderStream = ({
   }, [onOrderReceived]);
 
   return {
-    stream: orderEvents.current.asObservable(),
-    isStreaming: streamControl.current.getValue(),
     pauseStream: () => streamControl.current.next(false),
     resumeStream: () => streamControl.current.next(true),
   };

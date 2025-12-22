@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { useOrderStream } from "@/lib/orderflow/useSyntheticOrderStream";
 import { OrderEvent, OrderflowStats, OrderSide } from "@/lib/orderflow/types";
 
@@ -87,13 +87,14 @@ export function OrderFlowCanvas({
     // Resync aggregates when window changes
     recomputeTotals();
     updateStats(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [windowSeconds]);
 
   useEffect(() => {
     statsCallbackRef.current = onStatsChange;
   }, [onStatsChange]);
 
-  const spawnParticle = (order: OrderEvent) => {
+  function spawnParticle(order: OrderEvent) {
     const radius = Math.max(2, Math.log(order.volume + 1) * 1.2);
     const duration = 1400 + Math.random() * 800;
     particlesRef.current.push({
@@ -110,9 +111,9 @@ export function OrderFlowCanvas({
         particlesRef.current.length - maxParticles
       );
     }
-  };
+  }
 
-  const pruneWindow = () => {
+  function pruneWindow() {
     const cutoff = Date.now() - windowMsRef.current;
     const queue = queueRef.current;
     while (queue.length && queue[0].timestamp < cutoff) {
@@ -123,9 +124,9 @@ export function OrderFlowCanvas({
       totalsRef.current.buy = Math.max(0, totalsRef.current.buy);
       totalsRef.current.sell = Math.max(0, totalsRef.current.sell);
     }
-  };
+  }
 
-  const recomputeTotals = () => {
+  function recomputeTotals() {
     const cutoff = Date.now() - windowMsRef.current;
     let buy = 0;
     let sell = 0;
@@ -136,9 +137,9 @@ export function OrderFlowCanvas({
       }
     }
     totalsRef.current = { buy: Math.max(0, buy), sell: Math.max(0, sell) };
-  };
+  }
 
-  const updateStats = (force = false) => {
+  function updateStats(force = false) {
     pruneWindow();
     const total = totalsRef.current.buy + totalsRef.current.sell;
     const rawBuy = total > 0 ? totalsRef.current.buy / total : 0.5;
@@ -156,9 +157,9 @@ export function OrderFlowCanvas({
       statsRef.current = nextStats;
       statsCallbackRef.current?.(nextStats);
     }
-  };
+  }
 
-  const resize = () => {
+  const resize = useCallback(() => {
     const canvas = canvasRef.current;
     const ctx = canvas?.getContext("2d");
     if (!canvas || !ctx) return;
@@ -185,12 +186,12 @@ export function OrderFlowCanvas({
       separationX: span * 0.2, // short ramp to reach full separation
       separationMax,
     };
-  };
+  }, [separationScale]);
 
   const calcEdgesAt = (t: number, buyShare: number) => {
     const geom = geometryRef.current;
     if (!geom) return null;
-    const { origin, endX, separationX, separationMax } = geom;
+    const { origin, endX, separationMax } = geom;
     const x = origin.x + (endX - origin.x) * t;
     // Piecewise: 0-0.25 glued, 0.25-0.75 sigmoid fan-out, 0.75-1 constant separation
     let sep = 0;
@@ -279,7 +280,6 @@ export function OrderFlowCanvas({
       const sellVol = totalsRef.current.sell;
 
       const padX = 8;
-      const gap = 10;
       const isMobile = ctx.canvas.width / (window.devicePixelRatio || 1) < 640;
       const headlineSize = isMobile ? 12 : 14;
       const subSize = isMobile ? 11 : 12;
@@ -409,12 +409,13 @@ export function OrderFlowCanvas({
       observer.disconnect();
       if (animationRef.current) cancelAnimationFrame(animationRef.current);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
     // Recompute geometry when separation changes (desktop control)
     resize();
-  }, [separationScale]);
+  }, [resize, separationScale]);
 
   return (
     <div className="relative h-full w-full overflow-hidden rounded-2xl border border-white/10 bg-slate-900/80 shadow-lg">
