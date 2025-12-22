@@ -1,24 +1,20 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { FlowControls } from "@/components/orderflow/FlowControls";
 import { OrderFlowCanvas } from "@/components/orderflow/OrderFlowCanvas";
 import { StatsPanel } from "@/components/orderflow/StatsPanel";
+import { OrderflowStats } from "@/lib/orderflow/types";
 
 const demoBuyShare = 0.58;
 
 export default function Home() {
   const [streaming, setStreaming] = useState(true);
   const [windowSeconds, setWindowSeconds] = useState(45);
-
-  const stats = useMemo(
-    () => ({
-      buyShare: demoBuyShare,
-      sellShare: 1 - demoBuyShare,
-      windowSeconds,
-    }),
-    [windowSeconds]
-  );
+  const [stats, setStats] = useState<OrderflowStats>({
+    buyShare: demoBuyShare,
+    sellShare: 1 - demoBuyShare,
+  });
 
   return (
     <div className="min-h-screen bg-slate-950 text-white">
@@ -43,10 +39,27 @@ export default function Home() {
 
         <div className="grid gap-6 lg:grid-cols-[2fr,1fr]">
           <div className="flex flex-col gap-4">
-            <div className="aspect-[16/9] w-full">
-              <OrderFlowCanvas label="Orderflow canvas" streaming={streaming} />
+            <div className="aspect-[16/9] w-[800px]">
+              <OrderFlowCanvas
+                label="Orderflow canvas"
+                streaming={streaming}
+                windowSeconds={windowSeconds}
+                onStatsChange={(next) => setStats(next)}
+              />
             </div>
-            <StatsPanel {...stats} />
+            <div className="flex flex-col gap-4">
+              <FlowControls
+                streaming={streaming}
+                onToggleStreaming={() => setStreaming((s) => !s)}
+                windowSeconds={windowSeconds}
+                onWindowChange={setWindowSeconds}
+              />
+            </div>
+            <StatsPanel
+              buyShare={stats.buyShare}
+              sellShare={stats.sellShare}
+              windowSeconds={windowSeconds}
+            />
             <div className="rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-white/80">
               <p className="text-xs uppercase tracking-[0.2em] text-white/50">
                 Design intent
@@ -60,15 +73,6 @@ export default function Home() {
                 <code>docs/PROBLEM_DOC.md</code>.
               </p>
             </div>
-          </div>
-
-          <div className="flex flex-col gap-4">
-            <FlowControls
-              streaming={streaming}
-              onToggleStreaming={() => setStreaming((s) => !s)}
-              windowSeconds={windowSeconds}
-              onWindowChange={setWindowSeconds}
-            />
           </div>
         </div>
       </div>
