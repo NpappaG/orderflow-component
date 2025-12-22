@@ -66,6 +66,8 @@ Build a production-ready, real-time orderflow canvas component (Sankey-inspired)
   - Maintain an in-memory rolling window (seconds driven by slider) to compute buy/sell volume share and counts.
   - Optional EMA smoothing on volume share; clamp minimum branch thickness for readability.
   - Expose derived stats to canvas and overlay via refs to avoid React render churn.
+  - Visual fidelity: render as a stacked origin with immediate fan-out into parallel bands; conserve total width so imbalance is legible without labels.
+  - Horizontal Sankey variant: origin is a vertical pillar representing aggregate volume; buy/sell proportions are stacked segments. As flow moves right, a translated boundary separates segments while heights carry proportion.
 
 - **Configurability + hygiene**
   - Centralize tunables: `SYMBOL`, `BACKFILL_LIMIT`, `QUEUE_CAP`, `HEARTBEAT_MS`, `BACKOFF_MAX_MS`, `WINDOW_SECONDS`, `EMA_ALPHA`.
@@ -74,8 +76,16 @@ Build a production-ready, real-time orderflow canvas component (Sankey-inspired)
 
 - **Dependencies**
   - Subscription depends on validated trade shape and symbol scope.
-  - Dedup/backfill depend on maintaining `lastSeenTs`/`lastSeenId`.
-  - Aggregation depends on rolling window + EMA config; UI depends on derived aggregates and connection state.
+- Dedup/backfill depend on maintaining `lastSeenTs`/`lastSeenId`.
+- Aggregation depends on rolling window + EMA config; UI depends on derived aggregates and connection state.
+
+## Extra Credit (Optional)
+
+- Ship a Hyperliquid live mode alongside the synthetic stream:
+  - Feature flag to toggle stream source (synthetic vs. live WS).
+  - Implement the WS adapter per the workplan: validated trade shape, dedup, backfill, heartbeat/backoff.
+  - Reflect connection state in the UI (connecting/live/reconnecting/error) with a subtle badge.
+  - Keep the synthetic mode as fallback for demos and offline use.
 
 ## Risks & Mitigations
 

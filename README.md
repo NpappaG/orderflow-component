@@ -36,6 +36,8 @@ Real-time, canvas-based orderflow bifurcation inspired by Sankey diagrams. The t
 - **Flow model**: One source on the left that splits into Buy/Sell branches on the right. Branch thickness tracks recent executed volume share.
 - **Order particles**: Each order animates through the channel, then curves into its branch. Particle radius uses a log scale on volume.
 - **Temporal window**: Rolling aggregation window (slider-driven nice-to-have) smooths the buy/sell proportions without losing immediacy.
+- **Sankey feel**: Start from a stacked origin where total width is conserved; buy/sell bands separate immediately and retain their proportional thickness, making imbalance legible without labels.
+- **Horizontal Sankey**: Origin is a vertical pillar whose total height encodes aggregate volume; buy/sell proportions are stacked segments. As flow moves right, a translated boundary separates the segments while their heights remain the sole carrier of proportion.
 - **Separation of concerns**:
   - React hosts controls + canvas container.
   - RxJS stream/hook ingests orders and exposes both particle events and rolling aggregates.
@@ -46,8 +48,8 @@ Real-time, canvas-based orderflow bifurcation inspired by Sankey diagrams. The t
 
 ## Data + Streaming Plan
 
-- Start with the provided `useOrderStream` helper from the problem statement (BehaviorSubject/Subject-based) to synthesize realistic traffic.
-- Normalize events into `OrderEvent` `{ id, side, volume, timestamp, progress, animationState }`.
+- Start with the provided `useOrderStream` helper from the problem statement (BehaviorSubject/Subject-based) to synthesize realistic traffic; keep this as the default mode for demos.
+- Normalize events into `OrderEvent` `{ id, side, volume, timestamp }` (extend as needed for animation state internally).
 - Rolling aggregates: RxJS `scan` + time-bucketed queue to compute buy/sell volume share over the chosen window; expose a smoothed EMA for branch thickness to avoid jitter.
 - Controls: pause/resume stream, tweak time window, optionally slow-mo for demos.
 
@@ -71,10 +73,11 @@ Real-time, canvas-based orderflow bifurcation inspired by Sankey diagrams. The t
 
 ## Repo Map
 
-- `src/index.tsx`: Bun server + simple API stubs for dev.
-- `src/frontend.tsx`: React entry; mounts `App`.
-- `src/App.tsx`: Placeholder UI (Bun/React logos) + API tester scaffold; replace with orderflow canvas + controls.
-- `build.ts`: Bun build helper with Tailwind plugin and CLI flags.
+- `app/page.tsx`: Orderflow experience (canvas, controls, stats).
+- `components/orderflow/*`: Canvas, controls, stats UI.
+- `lib/orderflow/*`: Order types, synthetic stream hook (RxJS).
+- `next.config.ts`: Turbopack root pin.
+- Legacy (create-next-app scaffolding): `src/*`, `build.ts` (if retained).
 
 ---
 

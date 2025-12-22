@@ -5,6 +5,7 @@ import { FlowControls } from "@/components/orderflow/FlowControls";
 import { OrderFlowCanvas } from "@/components/orderflow/OrderFlowCanvas";
 import { StatsPanel } from "@/components/orderflow/StatsPanel";
 import { OrderflowStats } from "@/lib/orderflow/types";
+import Link from "next/link";
 
 const demoBuyShare = 0.58;
 
@@ -22,18 +23,22 @@ export default function Home() {
         <header className="flex flex-col gap-3">
           <div className="flex flex-wrap items-center gap-3 text-xs uppercase tracking-[0.2em] text-white/60">
             <span className="rounded-full bg-white/10 px-3 py-1">
-              Real-time
+              <Link
+                href="https://github.com/NPappaG/sankey-component"
+                target="_blank"
+                className="text-blue-500 hover:text-blue-600"
+              >
+                https://github.com/NPappaG/sankey-component
+              </Link>
             </span>
           </div>
           <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
             Orderflow Sankey component
           </h1>
           <p className="max-w-3xl text-base text-white/70">
-            Visualize live buy/sell direction with proportional branch thickness
-            and animated orders flowing left → right. Built to plug a synthetic
-            RxJS stream (provided in the challenge) and later swap in live trade
-            feeds, keeping React renders minimal while a canvas loop owns
-            animation.
+            Built to plug a synthetic RxJS stream (provided in the challenge)
+            and later swap in live trade feeds, keeping React renders minimal
+            while a canvas loop owns animation.
           </p>
         </header>
 

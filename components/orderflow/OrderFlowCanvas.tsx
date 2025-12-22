@@ -20,26 +20,23 @@ type Particle = {
   radius: number;
 };
 
-type Bezier = [number, number, number, number, number, number, number, number];
-
 const bgGradient = ["#0b1221", "#0f1e37", "#132a4c"];
-const buyColor = "rgba(74, 222, 128, 0.4)"; // tailwind green-400 with alpha
-const sellColor = "rgba(248, 113, 113, 0.4)"; // tailwind red-400 with alpha
-const trunkColor = "rgba(255, 255, 255, 0.2)";
-const baseBranchWidth = 6;
-const maxBranchWidth = 24;
+const buyColor = "rgba(4, 233, 38, 0.35)"; // ribbon fill
+const sellColor = "rgba(248, 113, 113, 0.35)";
+const particleBuyColor = "rgb(11, 247, 7)"; // brighter particles
+const particleSellColor = "rgba(244, 6, 6, 0.92)"; // reuse red hue
+const totalFlowHeight = 80; // combined stack height (pixels) at origin
+const minBandHeight = 6;
 const maxParticles = 400;
 const maxOrderBuffer = 2000;
 const emaAlpha = 0.2; // smoothing for branch thickness
+const ribbonSamples = 28;
 
-const sampleBezier = (b: Bezier, t: number) => {
-  const [x0, y0, x1, y1, x2, y2, x3, y3] = b;
-  const mt = 1 - t;
-  const mt2 = mt * mt;
-  const t2 = t * t;
-  const x = mt2 * mt * x0 + 3 * mt2 * t * x1 + 3 * mt * t2 * x2 + t * t2 * x3;
-  const y = mt2 * mt * y0 + 3 * mt2 * t * y1 + 3 * mt * t2 * y2 + t * t2 * y3;
-  return { x, y };
+type FlowGeometry = {
+  origin: { x: number; y: number };
+  endX: number;
+  separationX: number;
+  separationMax: number;
 };
 
 const easeOutCubic = (t: number) => 1 - Math.pow(1 - t, 3);
@@ -58,11 +55,7 @@ export function OrderFlowCanvas({
   const windowMsRef = useRef(windowSeconds * 1000);
   const animationRef = useRef<number | null>(null);
   const statsCallbackRef = useRef<typeof onStatsChange>(onStatsChange);
-  const geometryRef = useRef<{
-    trunk: Bezier;
-    buy: Bezier;
-    sell: Bezier;
-  } | null>(null);
+  const geometryRef = useRef<FlowGeometry | null>(null);
 
   const { pauseStream, resumeStream } = useOrderStream({
     enabled: streaming,
@@ -113,7 +106,10 @@ export function OrderFlowCanvas({
       radius,
     });
     if (particlesRef.current.length > maxParticles) {
-      particlesRef.current.splice(0, particlesRef.current.length - maxParticles);
+      particlesRef.current.splice(
+        0,
+        particlesRef.current.length - maxParticles
+      );
     }
   };
 
@@ -173,105 +169,104 @@ export function OrderFlowCanvas({
     ctx.scale(dpr, dpr);
 
     geometryRef.current = {
-      trunk: [
-        40,
-        rect.height / 2,
-        rect.width * 0.35,
-        rect.height * 0.45,
-        rect.width * 0.5,
-        rect.height * 0.55,
-        rect.width * 0.65,
-        rect.height * 0.5,
-      ],
-      buy: [
-        rect.width * 0.65,
-        rect.height * 0.5,
-        rect.width * 0.78,
-        rect.height * 0.35,
-        rect.width * 0.88,
-        rect.height * 0.2,
-        rect.width * 0.96,
-        rect.height * 0.25,
-      ],
-      sell: [
-        rect.width * 0.65,
-        rect.height * 0.5,
-        rect.width * 0.78,
-        rect.height * 0.65,
-        rect.width * 0.88,
-        rect.height * 0.8,
-        rect.width * 0.96,
-        rect.height * 0.75,
-      ],
+      origin: { x: rect.width * 0.12, y: rect.height * 0.5 },
+      endX: rect.width * 0.9,
+      separationX: rect.width * 0.12, // short ramp to reach full separation
+      separationMax: totalFlowHeight * 0.5, // ~10% gap of total stack height
     };
+  };
+
+  const calcEdgesAt = (t: number, buyShare: number) => {
+    const geom = geometryRef.current;
+    if (!geom) return null;
+    const { origin, endX, separationX, separationMax } = geom;
+    const x = origin.x + (endX - origin.x) * t;
+    const tSep = Math.max(0, Math.min(1, (x - origin.x) / separationX));
+    const sep = Math.min(separationMax, easeOutCubic(tSep) * separationMax);
+
+    const hBuy = Math.max(minBandHeight, totalFlowHeight * buyShare);
+    const hSell = Math.max(minBandHeight, totalFlowHeight - hBuy);
+    // Keep heights constant; separate by translating centers symmetrically with a gap
+    const yMid = origin.y;
+    const buyCenter = yMid - hSell / 2 - sep / 2;
+    const sellCenter = yMid + hBuy / 2 + sep / 2;
+
+    const buyTop = buyCenter - hBuy / 2;
+    const buyBot = buyCenter + hBuy / 2;
+    const sellTop = sellCenter - hSell / 2;
+    const sellBot = sellCenter + hSell / 2;
+
+    return { x, buyTop, buyBot, sellTop, sellBot, buyCenter, sellCenter };
+  };
+
+  const drawRibbons = (ctx: CanvasRenderingContext2D) => {
+    const geom = geometryRef.current;
+    if (!geom) return;
+    const { buyShare } = statsRef.current;
+
+    const buyTopPts: { x: number; y: number }[] = [];
+    const buyBotPts: { x: number; y: number }[] = [];
+    const sellTopPts: { x: number; y: number }[] = [];
+    const sellBotPts: { x: number; y: number }[] = [];
+
+    for (let i = 0; i <= ribbonSamples; i++) {
+      const t = i / ribbonSamples;
+      const edges = calcEdgesAt(t, buyShare);
+      if (!edges) continue;
+      buyTopPts.push({ x: edges.x, y: edges.buyTop });
+      buyBotPts.push({ x: edges.x, y: edges.buyBot });
+      sellTopPts.push({ x: edges.x, y: edges.sellTop });
+      sellBotPts.push({ x: edges.x, y: edges.sellBot });
+    }
+
+    // Buy ribbon
+    ctx.beginPath();
+    buyTopPts.forEach((p, idx) => {
+      if (idx === 0) ctx.moveTo(p.x, p.y);
+      else ctx.lineTo(p.x, p.y);
+    });
+    for (let i = buyBotPts.length - 1; i >= 0; i--) {
+      const p = buyBotPts[i];
+      ctx.lineTo(p.x, p.y);
+    }
+    ctx.closePath();
+    ctx.fillStyle = buyColor;
+    ctx.fill();
+
+    // Sell ribbon
+    ctx.beginPath();
+    sellTopPts.forEach((p, idx) => {
+      if (idx === 0) ctx.moveTo(p.x, p.y);
+      else ctx.lineTo(p.x, p.y);
+    });
+    for (let i = sellBotPts.length - 1; i >= 0; i--) {
+      const p = sellBotPts[i];
+      ctx.lineTo(p.x, p.y);
+    }
+    ctx.closePath();
+    ctx.fillStyle = sellColor;
+    ctx.fill();
   };
 
   const drawFrame = () => {
     const canvas = canvasRef.current;
     const ctx = canvas?.getContext("2d");
-    const geom = geometryRef.current;
-    if (!canvas || !ctx || !geom) return;
+    if (!canvas || !ctx) return;
 
     // Background
-    const gradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
+    const gradient = ctx.createLinearGradient(
+      0,
+      0,
+      canvas.width,
+      canvas.height
+    );
     gradient.addColorStop(0, bgGradient[0]);
     gradient.addColorStop(0.5, bgGradient[1]);
     gradient.addColorStop(1, bgGradient[2]);
     ctx.fillStyle = gradient;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    // Branch thickness based on share
-    const { buyShare, sellShare } = statsRef.current;
-    const buyWidth = baseBranchWidth + buyShare * maxBranchWidth;
-    const sellWidth = baseBranchWidth + sellShare * maxBranchWidth;
-
-    // Trunk
-    ctx.save();
-    ctx.lineCap = "round";
-    ctx.strokeStyle = trunkColor;
-    ctx.lineWidth = baseBranchWidth;
-    ctx.beginPath();
-    ctx.moveTo(geom.trunk[0], geom.trunk[1]);
-    ctx.bezierCurveTo(
-      geom.trunk[2],
-      geom.trunk[3],
-      geom.trunk[4],
-      geom.trunk[5],
-      geom.trunk[6],
-      geom.trunk[7]
-    );
-    ctx.stroke();
-
-    // Buy branch
-    ctx.strokeStyle = buyColor;
-    ctx.lineWidth = buyWidth;
-    ctx.beginPath();
-    ctx.moveTo(geom.buy[0], geom.buy[1]);
-    ctx.bezierCurveTo(
-      geom.buy[2],
-      geom.buy[3],
-      geom.buy[4],
-      geom.buy[5],
-      geom.buy[6],
-      geom.buy[7]
-    );
-    ctx.stroke();
-
-    // Sell branch
-    ctx.strokeStyle = sellColor;
-    ctx.lineWidth = sellWidth;
-    ctx.beginPath();
-    ctx.moveTo(geom.sell[0], geom.sell[1]);
-    ctx.bezierCurveTo(
-      geom.sell[2],
-      geom.sell[3],
-      geom.sell[4],
-      geom.sell[5],
-      geom.sell[6],
-      geom.sell[7]
-    );
-    ctx.stroke();
-    ctx.restore();
+    drawRibbons(ctx);
 
     // Particles
     const now = performance.now();
@@ -279,23 +274,17 @@ export function OrderFlowCanvas({
     for (const p of particlesRef.current) {
       const t = Math.min(1, (now - p.birth) / p.duration);
       const eased = easeOutCubic(t);
-      const pathSplit = 0.62;
-      let point;
-      if (eased < pathSplit) {
-        const localT = eased / pathSplit;
-        point = sampleBezier(geom.trunk, localT);
-      } else {
-        const localT = (eased - pathSplit) / (1 - pathSplit);
-        const branch = p.side === "buy" ? geom.buy : geom.sell;
-        point = sampleBezier(branch, localT);
-      }
+      const edges = calcEdgesAt(eased, statsRef.current.buyShare);
+      if (!edges) continue;
+      const centerY = p.side === "buy" ? edges.buyCenter : edges.sellCenter;
+      const point = { x: edges.x, y: centerY };
 
       const alpha = 1 - t;
       ctx.beginPath();
       ctx.fillStyle =
         p.side === "buy"
-          ? `rgba(74, 222, 128, ${0.6 * alpha})`
-          : `rgba(248, 113, 113, ${0.6 * alpha})`;
+          ? particleBuyColor.replace("ALPHA", (0.6 * alpha).toFixed(3))
+          : particleSellColor.replace("ALPHA", (0.6 * alpha).toFixed(3));
       ctx.arc(point.x, point.y, p.radius, 0, Math.PI * 2);
       ctx.fill();
 
