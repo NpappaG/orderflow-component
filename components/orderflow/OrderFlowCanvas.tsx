@@ -319,11 +319,11 @@ export function OrderFlowCanvas({
   return (
     <div className="relative h-full w-full overflow-hidden rounded-2xl border border-white/10 bg-slate-900/80 shadow-lg">
       <canvas ref={canvasRef} className="h-full w-full" />
-      <div className="pointer-events-none absolute left-4 top-4 flex flex-col gap-1 text-xs font-medium text-white/80">
-        <span className="rounded-full bg-white/10 px-2 py-1 backdrop-blur">
+      <div className="pointer-events-none absolute inset-x-3 top-3 flex items-center justify-between text-[11px] font-semibold text-white/70">
+        <span className="rounded-full border border-white/15 px-2 py-[2px] backdrop-blur-sm">
           {label}
         </span>
-        <span className="rounded-full bg-white/5 px-2 py-1 backdrop-blur">
+        <span className="rounded-full border border-white/15 px-2 py-[2px] backdrop-blur-sm">
           {streaming ? "Streaming" : "Paused"}
         </span>
       </div>

@@ -14,10 +14,22 @@ export function StatsPanel({
   windowSeconds,
 }: StatsPanelProps) {
   return (
-    <div className="grid grid-cols-2 gap-4 rounded-2xl border border-white/10 bg-slate-950/80 p-4 text-sm shadow-lg md:grid-cols-3">
-      <StatTile label="Buy share" value={formatPct(buyShare)} accent="bg-emerald-400" />
-      <StatTile label="Sell share" value={formatPct(sellShare)} accent="bg-rose-400" />
-      <StatTile label="Window" value={`${windowSeconds}s`} accent="bg-amber-400" />
+    <div className="flex flex-col gap-4 rounded-2xl border border-white/10 bg-slate-950/80 p-4 text-sm shadow-lg">
+      <StatTile
+        label="Buy share"
+        value={formatPct(buyShare)}
+        accent="bg-emerald-400"
+      />
+      <StatTile
+        label="Sell share"
+        value={formatPct(sellShare)}
+        accent="bg-rose-400"
+      />
+      <StatTile
+        label="Lookback Time"
+        value={`${windowSeconds}s`}
+        accent="bg-amber-400"
+      />
     </div>
   );
 }

@@ -24,11 +24,11 @@ export default function Home() {
           <div className="flex flex-wrap items-center gap-3 text-xs uppercase tracking-[0.2em] text-white/60">
             <span className="rounded-full bg-white/10 px-3 py-1">
               <Link
-                href="https://github.com/NPappaG/sankey-component"
+                href="https://github.com/NPappaG/orderflow-component"
                 target="_blank"
                 className="text-blue-500 hover:text-blue-600"
               >
-                https://github.com/NPappaG/sankey-component
+                https://github.com/NPappaG/orderflow-component
               </Link>
             </span>
           </div>
@@ -42,14 +42,21 @@ export default function Home() {
           </p>
         </header>
 
-        <div className="grid gap-6 lg:grid-cols-[2fr,1fr]">
+        <div className="flex flex-col gap-6">
           <div className="flex flex-col gap-4">
-            <div className="aspect-[16/9] w-[800px]">
-              <OrderFlowCanvas
-                label="Orderflow canvas"
-                streaming={streaming}
+            <div className="flex flex-col items-center gap-4 md:flex-row md:items-center">
+              <div className="aspect-[16/9] w-full md:flex-1">
+                <OrderFlowCanvas
+                  label="Orderflow canvas"
+                  streaming={streaming}
+                  windowSeconds={windowSeconds}
+                  onStatsChange={(next) => setStats(next)}
+                />
+              </div>
+              <StatsPanel
+                buyShare={stats.buyShare}
+                sellShare={stats.sellShare}
                 windowSeconds={windowSeconds}
-                onStatsChange={(next) => setStats(next)}
               />
             </div>
             <div className="flex flex-col gap-4">
@@ -60,11 +67,6 @@ export default function Home() {
                 onWindowChange={setWindowSeconds}
               />
             </div>
-            <StatsPanel
-              buyShare={stats.buyShare}
-              sellShare={stats.sellShare}
-              windowSeconds={windowSeconds}
-            />
             <div className="rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-white/80">
               <p className="text-xs uppercase tracking-[0.2em] text-white/50">
                 Design intent
