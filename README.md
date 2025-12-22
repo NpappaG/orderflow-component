@@ -25,7 +25,7 @@ Real-time, canvas-based orderflow bifurcation inspired by Sankey diagrams. The t
 
 ## Architecture Outline
 
-- **React shell**: wraps controls (pause/resume, window slider, density knobs) and hosts the canvas element.
+- **React shell**: wraps controls (pause/resume, window slider) and hosts the canvas element.
 - **RxJS stream**: adapts the provided hook, emits orders, supports pause/resume, and computes rolling buy/sell volume share.
 - **Canvas layer**: owns the render loop, bezier curves, easing, and particle pool; reads stream state via refs to avoid re-renders.
 
@@ -49,7 +49,7 @@ Real-time, canvas-based orderflow bifurcation inspired by Sankey diagrams. The t
 - Start with the provided `useOrderStream` helper from the problem statement (BehaviorSubject/Subject-based) to synthesize realistic traffic.
 - Normalize events into `OrderEvent` `{ id, side, volume, timestamp, progress, animationState }`.
 - Rolling aggregates: RxJS `scan` + time-bucketed queue to compute buy/sell volume share over the chosen window; expose a smoothed EMA for branch thickness to avoid jitter.
-- Controls: pause/resume stream, toggle animation density, tweak time window, optionally slow-mo for demos.
+- Controls: pause/resume stream, tweak time window, optionally slow-mo for demos.
 
 ---
 
@@ -97,4 +97,4 @@ bun run build.ts
 
 - Swap synthetic stream for Hyperliquid trades via WebSocket subscription once the canvas/aggregation loop is solid.
 - Add tests around the RxJS pipeline (aggregation correctness, pause/resume, backpressure under bursty input).
-- Tune easing/curves and add presets for demo vs high-throughput modes.
+- Tune easing/curves and add presets for demo vs live-data modes.
