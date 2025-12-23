@@ -312,10 +312,6 @@ export function OrderFlowCanvas({
       });
       const buyPct = formatter.format(buyShare);
       const sellPct = formatter.format(1 - buyShare);
-      const buyVol = totalsRef.current.buy;
-      const sellVol = totalsRef.current.sell;
-      const buyCount = totalsRef.current.buyCount;
-      const sellCount = totalsRef.current.sellCount;
 
       const padX = 8;
       const isMobile = ctx.canvas.width / (window.devicePixelRatio || 1) < 640;

@@ -7,6 +7,7 @@ type FlowControlsProps = {
   onWindowChange: (value: number) => void;
   separationScale?: number;
   onSeparationChange?: (value: number) => void;
+  className?: string;
 };
 
 export function FlowControls({
@@ -16,9 +17,14 @@ export function FlowControls({
   onWindowChange,
   separationScale,
   onSeparationChange,
+  className,
 }: FlowControlsProps) {
   return (
-    <div className="flex flex-col gap-4 rounded-2xl border border-white/10 bg-slate-950/80 p-4 text-sm shadow-lg">
+    <div
+      className={`flex flex-col gap-4 rounded-2xl border border-white/10 bg-slate-950/80 p-4 text-sm shadow-lg ${
+        className ?? ""
+      }`}
+    >
       <div className="flex items-center justify-between gap-3">
         <div>
           <p className="text-xs uppercase tracking-[0.2em] text-white/50">Stream</p>

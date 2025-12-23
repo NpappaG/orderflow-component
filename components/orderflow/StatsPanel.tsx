@@ -8,6 +8,7 @@ type StatsPanelProps = {
   sellVolume?: number;
   buyCount?: number;
   sellCount?: number;
+  className?: string;
 };
 
 const formatPct = (value: number) => `${(value * 100).toFixed(1)}%`;
@@ -20,25 +21,30 @@ export function StatsPanel({
   sellVolume,
   buyCount,
   sellCount,
+  className,
 }: StatsPanelProps) {
   return (
-    <div className="flex flex-col gap-4 rounded-2xl border border-white/10 bg-slate-950/80 p-4 text-sm shadow-lg">
+    <div
+      className={`flex flex-col gap-2 rounded-2xl border border-white/10 bg-slate-950/80 p-4 text-sm shadow-lg ${
+        className ?? ""
+      }`}
+    >
+      <div className="text-[11px] uppercase tracking-[0.2em] text-white/50">
+        Lookback: {windowSeconds}s
+      </div>
       <StatTile
         label="Buys"
-        value={`${formatPct(buyShare)} • ${buyVolume ? Math.round(buyVolume) : "-"} vol`}
-        subvalue={buyCount !== undefined ? `${buyCount} trades` : undefined}
+        value={`${formatPct(buyShare)} • ${buyVolume ? Math.round(buyVolume) : "-"} vol • ${
+          buyCount !== undefined ? buyCount : "-"
+        } trades`}
         accent="bg-emerald-400"
       />
       <StatTile
         label="Sells"
-        value={`${formatPct(sellShare)} • ${sellVolume ? Math.round(sellVolume) : "-"} vol`}
-        subvalue={sellCount !== undefined ? `${sellCount} trades` : undefined}
+        value={`${formatPct(sellShare)} • ${sellVolume ? Math.round(sellVolume) : "-"} vol • ${
+          sellCount !== undefined ? sellCount : "-"
+        } trades`}
         accent="bg-rose-400"
-      />
-      <StatTile
-        label="Lookback Time"
-        value={`${windowSeconds}s`}
-        accent="bg-amber-400"
       />
     </div>
   );
@@ -47,19 +53,17 @@ export function StatsPanel({
 type StatTileProps = {
   label: string;
   value: string;
-  subvalue?: string;
   accent: string;
 };
 
-function StatTile({ label, value, subvalue, accent }: StatTileProps) {
+function StatTile({ label, value, accent }: StatTileProps) {
   return (
     <div className="rounded-xl bg-white/5 p-3">
-      <div className="flex items-center gap-2 text-xs uppercase tracking-[0.2em] text-white/50">
+      <div className="flex items-center gap-2 text-[11px] uppercase tracking-[0.2em] text-white/50">
         <span className={`h-2 w-2 rounded-full ${accent}`} />
         {label}
       </div>
-      <div className="pt-1 text-lg font-semibold text-white/90">{value}</div>
-      {subvalue ? <div className="text-xs text-white/60">{subvalue}</div> : null}
+      <div className="pt-1 text-sm font-semibold text-white/90">{value}</div>
     </div>
   );
 }

@@ -2,6 +2,8 @@
 
 Real-time, canvas-based orderflow bifurcation inspired by Sankey diagrams. The target audience is a trading UI where we communicate **market direction and buy/sell imbalance** through proportional flow and animated order activity. Challenge brief lives in `docs/PROBLEM_DOC.md`.
 
+![UI Screenshot](public/screenshot.png)
+
 ---
 
 ## Problem Brief
@@ -43,6 +45,7 @@ Real-time, canvas-based orderflow bifurcation inspired by Sankey diagrams. The t
   - RxJS stream/hook ingests synthetic orders; rolling aggregates computed in-memory with smoothing.
   - Canvas layer owns ribbon geometry/easing, particle pool, and inline stats chips via refs.
 - **Performance**: Particle pool and capped concurrency to keep GC and CPU in check; ribbon sampling tuned (80 samples) for smooth edges; responsive padding for mobile vs desktop.
+- **Readability**: Percent-only pills live on the ribbons; volume/trade counts live in the stats panel; padding and separation controls avoid crowding on smaller screens.
 
 ---
 
