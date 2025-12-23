@@ -16,6 +16,10 @@ export default function Home() {
   const [stats, setStats] = useState<OrderflowStats>({
     buyShare: demoBuyShare,
     sellShare: 1 - demoBuyShare,
+    buyVolume: 0,
+    sellVolume: 0,
+    buyCount: 0,
+    sellCount: 0,
   });
 
   return (
@@ -59,6 +63,10 @@ export default function Home() {
                 buyShare={stats.buyShare}
                 sellShare={stats.sellShare}
                 windowSeconds={windowSeconds}
+                buyVolume={stats.buyVolume}
+                sellVolume={stats.sellVolume}
+                buyCount={stats.buyCount}
+                sellCount={stats.sellCount}
               />
             </div>
             <div className="flex flex-col gap-4">

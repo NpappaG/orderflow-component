@@ -57,9 +57,15 @@ export function OrderFlowCanvas({
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const particlesRef = useRef<Particle[]>([]);
   const queueRef = useRef<OrderEvent[]>([]);
-  const totalsRef = useRef({ buy: 0, sell: 0 });
-  const countsRef = useRef({ buy: 0, sell: 0 });
-  const statsRef = useRef<OrderflowStats>({ buyShare: 0.5, sellShare: 0.5 });
+  const totalsRef = useRef({ buy: 0, sell: 0, buyCount: 0, sellCount: 0 });
+  const statsRef = useRef<OrderflowStats>({
+    buyShare: 0.5,
+    sellShare: 0.5,
+    buyVolume: 0,
+    sellVolume: 0,
+    buyCount: 0,
+    sellCount: 0,
+  });
   const windowMsRef = useRef(windowSeconds * 1000);
   const animationRef = useRef<number | null>(null);
   const statsCallbackRef = useRef<typeof onStatsChange>(onStatsChange);
@@ -69,10 +75,13 @@ export function OrderFlowCanvas({
     enabled: streaming,
     onOrderReceived: (order) => {
       queueRef.current.push(order);
-      if (order.side === "buy") totalsRef.current.buy += order.volume;
-      else totalsRef.current.sell += order.volume;
-      if (order.side === "buy") countsRef.current.buy += 1;
-      else countsRef.current.sell += 1;
+      if (order.side === "buy") {
+        totalsRef.current.buy += order.volume;
+        totalsRef.current.buyCount += 1;
+      } else {
+        totalsRef.current.sell += order.volume;
+        totalsRef.current.sellCount += 1;
+      }
       totalsRef.current.buy = Math.max(0, totalsRef.current.buy);
       totalsRef.current.sell = Math.max(0, totalsRef.current.sell);
       spawnParticle(order);
@@ -122,8 +131,13 @@ export function OrderFlowCanvas({
     while (queue.length && queue[0].timestamp < cutoff) {
       const expired = queue.shift();
       if (!expired) break;
-      if (expired.side === "buy") totalsRef.current.buy -= expired.volume;
-      else totalsRef.current.sell -= expired.volume;
+      if (expired.side === "buy") {
+        totalsRef.current.buy -= expired.volume;
+        totalsRef.current.buyCount -= 1;
+      } else {
+        totalsRef.current.sell -= expired.volume;
+        totalsRef.current.sellCount -= 1;
+      }
       totalsRef.current.buy = Math.max(0, totalsRef.current.buy);
       totalsRef.current.sell = Math.max(0, totalsRef.current.sell);
     }
@@ -133,13 +147,25 @@ export function OrderFlowCanvas({
     const cutoff = Date.now() - windowMsRef.current;
     let buy = 0;
     let sell = 0;
+    let buyCount = 0;
+    let sellCount = 0;
     for (const o of queueRef.current) {
       if (o.timestamp >= cutoff) {
-        if (o.side === "buy") buy += o.volume;
-        else sell += o.volume;
+        if (o.side === "buy") {
+          buy += o.volume;
+          buyCount += 1;
+        } else {
+          sell += o.volume;
+          sellCount += 1;
+        }
       }
     }
-    totalsRef.current = { buy: Math.max(0, buy), sell: Math.max(0, sell) };
+    totalsRef.current = {
+      buy: Math.max(0, buy),
+      sell: Math.max(0, sell),
+      buyCount,
+      sellCount,
+    };
   }
 
   function updateStats(force = false) {
@@ -150,7 +176,14 @@ export function OrderFlowCanvas({
       emaAlpha * rawBuy + (1 - emaAlpha) * statsRef.current.buyShare;
     const buyShare = Math.min(1, Math.max(0, smoothedBuy));
     const sellShare = 1 - buyShare;
-    const nextStats = { buyShare, sellShare };
+    const nextStats: OrderflowStats = {
+      buyShare,
+      sellShare,
+      buyVolume: totalsRef.current.buy,
+      sellVolume: totalsRef.current.sell,
+      buyCount: totalsRef.current.buyCount,
+      sellCount: totalsRef.current.sellCount,
+    };
 
     if (
       force ||
@@ -281,23 +314,16 @@ export function OrderFlowCanvas({
       const sellPct = formatter.format(1 - buyShare);
       const buyVol = totalsRef.current.buy;
       const sellVol = totalsRef.current.sell;
-      const buyCount = countsRef.current.buy;
-      const sellCount = countsRef.current.sell;
+      const buyCount = totalsRef.current.buyCount;
+      const sellCount = totalsRef.current.sellCount;
 
       const padX = 8;
       const isMobile = ctx.canvas.width / (window.devicePixelRatio || 1) < 640;
       const headlineSize = isMobile ? 12 : 14;
-      const subSize = isMobile ? 11 : 12;
       const clamp = (v: number, min: number, max: number) =>
         Math.max(min, Math.min(max, v));
 
-      const drawChip = (
-        x: number,
-        y: number,
-        text: string,
-        subtext: string,
-        color: string
-      ) => {
+      const drawChip = (x: number, y: number, text: string, color: string) => {
         const thickness =
           color === "rgba(74, 222, 128, 0.8)"
             ? tipSample.buyBot - tipSample.buyTop
@@ -306,8 +332,6 @@ export function OrderFlowCanvas({
         ctx.save();
         ctx.font = `${headlineSize}px 'Inter', system-ui, -apple-system`;
         const textWidth = ctx.measureText(text).width;
-        ctx.font = `${subSize}px 'Inter', system-ui, -apple-system`;
-        const subWidth = ctx.measureText(subtext).width;
         const w = textWidth + padX * 2 + 6; // pill only wraps the percent text
         const r = 8;
         ctx.fillStyle = color;
@@ -327,11 +351,6 @@ export function OrderFlowCanvas({
         ctx.textBaseline = "middle";
         ctx.fillStyle = "#0a0a0a";
         ctx.fillText(text, x + padX + 2, y);
-        // Volume outside, to the right
-        ctx.font = `${subSize}px 'Inter', system-ui, -apple-system`;
-        ctx.textBaseline = "middle";
-        ctx.fillStyle = "#ffffff";
-        ctx.fillText(subtext, x + w + 8, y);
         ctx.restore();
       };
 
@@ -343,15 +362,13 @@ export function OrderFlowCanvas({
       drawChip(
         chipX,
         buyY,
-        `Buy ${buyPct}`,
-        `Vol: ${Math.round(buyVol)} | Trade Ct: ${buyCount}`,
+        `${buyPct}`,
         "rgba(74, 222, 128, 0.8)"
       );
       drawChip(
         chipX,
         sellY,
-        `Sell ${sellPct}`,
-        `Vol: ${Math.round(sellVol)} | Trade Ct: ${sellCount}`,
+        `${sellPct}`,
         "rgba(248, 113, 113, 0.8)"
       );
     }

@@ -10,4 +10,8 @@ export type OrderEvent = {
 export type OrderflowStats = {
   buyShare: number;
   sellShare: number;
+  buyVolume?: number;
+  sellVolume?: number;
+  buyCount?: number;
+  sellCount?: number;
 };
