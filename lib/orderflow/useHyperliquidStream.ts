@@ -26,7 +26,7 @@ export function useHyperliquidStream({
   const wsRef = useRef<ReturnType<typeof getHyperliquidWebSocket> | null>(null);
   const subKeyRef = useRef<string | null>(null);
   const lastSeenIdsRef = useRef<Set<string>>(new Set());
-  const onOrderReceivedRef = useRef<typeof onOrderReceived>();
+  const onOrderReceivedRef = useRef<typeof onOrderReceived | null>(null);
 
   useEffect(() => {
     onOrderReceivedRef.current = onOrderReceived;

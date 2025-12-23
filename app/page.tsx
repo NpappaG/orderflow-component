@@ -13,6 +13,9 @@ export default function Home() {
   const [streaming, setStreaming] = useState(true);
   const [windowSeconds, setWindowSeconds] = useState(45);
   const [separationScale, setSeparationScale] = useState(5);
+  const [streamMode, setStreamMode] = useState<"synthetic" | "live">(
+    "synthetic"
+  );
   const [stats, setStats] = useState<OrderflowStats>({
     buyShare: demoBuyShare,
     sellShare: 1 - demoBuyShare,
@@ -38,12 +41,14 @@ export default function Home() {
             </span>
           </div>
           <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
-            Orderflow Sankey component
+            Orderflow Sankey - for Hyperliquid or Synthetic Data
           </h1>
           <p className="max-w-3xl text-base text-white/70">
-            Built to plug a synthetic RxJS stream (provided in the challenge)
-            and later swap in live trade feeds, keeping React renders minimal
-            while a canvas loop owns animation.
+            Sankey-style orderflow visualization with log-scaled particles,
+            rolling window + EMA smoothing. Toggle between the provided
+            synthetic RxJS stream or live Hyperliquid BTC trades websocket data.
+            Includes control panel for pause/lookback/separation, keeping React
+            minimal while the canvas loop owns rendering.
           </p>
         </header>
 
@@ -54,6 +59,7 @@ export default function Home() {
                 <OrderFlowCanvas
                   label="Orderflow lookback:"
                   streaming={streaming}
+                  streamMode={streamMode}
                   windowSeconds={windowSeconds}
                   separationScale={separationScale}
                   onStatsChange={(next) => setStats(next)}
@@ -77,6 +83,8 @@ export default function Home() {
                   onWindowChange={setWindowSeconds}
                   separationScale={separationScale}
                   onSeparationChange={setSeparationScale}
+                  streamMode={streamMode}
+                  onStreamModeChange={setStreamMode}
                   className="flex-1 min-h-0 overflow-auto"
                 />
               </div>
@@ -87,21 +95,52 @@ export default function Home() {
               </p>
               <ul className="mt-2 list-disc space-y-1 pl-5 text-white/70">
                 <li>
-                  Stacked-origin ribbons fan out via a mid-span sigmoid, then run
-                  parallel at a fixed gap (adjustable on desktop).
+                  Stacked-origin ribbons fan out via a mid-span sigmoid, then
+                  run parallel at a fixed gap (adjustable on desktop).
                 </li>
                 <li>
-                  Percent-only pills live on the ribbons; volume/trade counts live in
-                  the stats panel. Pill height is clamped to the ribbon thickness; width
-                  is text-based, so alignment is approximate.
+                  Percent-only pills live on the ribbons; volume/trade counts
+                  live in the stats panel. Pill height is clamped to the ribbon
+                  thickness; width is text-based, so alignment is approximate.
                 </li>
                 <li>
-                  Rolling lookback slider drives an in-memory window with EMA smoothing;
-                  padding/separation controls keep things readable on smaller screens.
+                  Rolling lookback slider drives an in-memory window with EMA
+                  smoothing; padding/separation controls keep things readable on
+                  smaller screens.
                 </li>
                 <li>
-                  Canvas is decoupled from React via refs, ready for the RxJS stream
-                  from <code>docs/PROBLEM_DOC.md</code>.
+                  The lookback window maintains a time-ordered queue of trades;
+                  old trades are culled past the cutoff, totals recalc on window
+                  change, and EMA smooths the share so thickness and stats
+                  update gently.
+                </li>
+                <li>
+                  Live mode subscribes to Hyperliquid trades (`trades` channel,
+                  BTC) over `wss://api.hyperliquid.xyz/ws`; sides are normalized
+                  (buy/sell), notional volume is computed as size×price,
+                  duplicate trade ids are dropped, and the same canvas loop
+                  animates particles/log-scaled radii.
+                </li>
+                <li>
+                  Modes & controls: Synthetic (RxJS demo) vs Live trades;
+                  pause/resume; lookback slider drives the window + EMA; desktop
+                  separation slider sets the gap. Pills on-canvas show only %,
+                  while the stats panel carries notional volume and trade
+                  counts.
+                </li>
+                <li>
+                  Pause unsubscribes live + halts synthetic; the render loop
+                  keeps going while the window ages out trades, so shares drift
+                  as the buffer empties.
+                </li>
+                <li>
+                  Mode switch (Synthetic ↔ Live) affects only new trades;
+                  existing ones stay in the window until they age out, so shares
+                  can briefly reflect a mix of both sources.
+                </li>
+                <li>
+                  Canvas is decoupled from React via refs, ready for the RxJS
+                  stream from <code>docs/PROBLEM_DOC.md</code>.
                 </li>
               </ul>
             </div>
