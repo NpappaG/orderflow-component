@@ -52,14 +52,11 @@ export function useHyperliquidStream({
           const trimmed = Array.from(lastSeenIdsRef.current).slice(-400);
           lastSeenIdsRef.current = new Set(trimmed);
         }
-        const side: OrderSide =
-          trade.side === "B" ||
-          trade.side === "buy" ||
-          trade.side === "BUY" ||
-          trade.side === "b" ||
-          trade.side === "Buy"
-            ? "buy"
-            : "sell";
+        const normSide =
+          typeof trade.side === "string"
+            ? trade.side.toLowerCase()
+            : ("" as string);
+        const side: OrderSide = normSide.startsWith("b") ? "buy" : "sell";
         const size = Number(trade.sz);
         const px = Number(trade.px);
         const notional =
