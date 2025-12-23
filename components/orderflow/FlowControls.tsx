@@ -8,6 +8,8 @@ type FlowControlsProps = {
   separationScale?: number;
   onSeparationChange?: (value: number) => void;
   className?: string;
+  streamMode?: "synthetic" | "live";
+  onStreamModeChange?: (mode: "synthetic" | "live") => void;
 };
 
 export function FlowControls({
@@ -18,6 +20,8 @@ export function FlowControls({
   separationScale,
   onSeparationChange,
   className,
+  streamMode = "synthetic",
+  onStreamModeChange,
 }: FlowControlsProps) {
   return (
     <div
@@ -27,8 +31,26 @@ export function FlowControls({
     >
       <div className="flex items-center justify-between gap-3">
         <div>
-          <p className="text-xs uppercase tracking-[0.2em] text-white/50">Stream</p>
-          <p className="text-white/90">Order ingestion</p>
+          {/*           <p className="text-xs uppercase tracking-[0.2em] text-white/50">
+            Stream
+          </p> */}
+          {/*           <p className="text-white/90">Order ingestion</p> */}
+          <div className="flex rounded-full border border-white/10 bg-white/5 p-[3px] text-xs font-semibold text-white/80">
+            {(["synthetic", "live"] as const).map((mode) => (
+              <button
+                key={mode}
+                type="button"
+                onClick={() => onStreamModeChange?.(mode)}
+                className={`px-3 py-1 rounded-full transition ${
+                  streamMode === mode
+                    ? "bg-white text-slate-900"
+                    : "bg-transparent text-white/70 hover:bg-white/10"
+                }`}
+              >
+                {mode === "synthetic" ? "Synthetic" : "Live BTC (HL)"}
+              </button>
+            ))}
+          </div>
         </div>
         <button
           type="button"

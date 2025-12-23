@@ -2,11 +2,13 @@
 
 import { useCallback, useEffect, useRef } from "react";
 import { useOrderStream } from "@/lib/orderflow/useSyntheticOrderStream";
+import { useHyperliquidStream } from "@/lib/orderflow/useHyperliquidStream";
 import { OrderEvent, OrderflowStats, OrderSide } from "@/lib/orderflow/types";
 
 type OrderFlowCanvasProps = {
   label?: string;
   streaming?: boolean;
+  streamMode?: "synthetic" | "live";
   windowSeconds: number;
   onStatsChange?: (stats: OrderflowStats) => void;
   separationScale?: number;
@@ -50,6 +52,7 @@ const sigmoidNormalized = (t: number) => {
 export function OrderFlowCanvas({
   label = "Synthetic stream",
   streaming = true,
+  streamMode = "synthetic",
   windowSeconds,
   onStatsChange,
   separationScale = 1,
@@ -71,28 +74,44 @@ export function OrderFlowCanvas({
   const statsCallbackRef = useRef<typeof onStatsChange>(onStatsChange);
   const geometryRef = useRef<FlowGeometry | null>(null);
 
-  const { pauseStream, resumeStream } = useOrderStream({
-    enabled: streaming,
-    onOrderReceived: (order) => {
-      queueRef.current.push(order);
-      if (order.side === "buy") {
-        totalsRef.current.buy += order.volume;
-        totalsRef.current.buyCount += 1;
-      } else {
-        totalsRef.current.sell += order.volume;
-        totalsRef.current.sellCount += 1;
-      }
-      totalsRef.current.buy = Math.max(0, totalsRef.current.buy);
-      totalsRef.current.sell = Math.max(0, totalsRef.current.sell);
-      spawnParticle(order);
-      updateStats();
-    },
+  const handleOrder = (order: OrderEvent) => {
+    queueRef.current.push(order);
+    if (order.side === "buy") {
+      totalsRef.current.buy += order.volume;
+      totalsRef.current.buyCount += 1;
+    } else {
+      totalsRef.current.sell += order.volume;
+      totalsRef.current.sellCount += 1;
+    }
+    totalsRef.current.buy = Math.max(0, totalsRef.current.buy);
+    totalsRef.current.sell = Math.max(0, totalsRef.current.sell);
+    spawnParticle(order);
+    updateStats();
+  };
+
+  const synthetic = useOrderStream({
+    enabled: streaming && streamMode === "synthetic",
+    onOrderReceived: handleOrder,
+  });
+  const live = useHyperliquidStream({
+    enabled: streaming && streamMode === "live",
+    onOrderReceived: handleOrder,
   });
 
   useEffect(() => {
-    if (streaming) resumeStream();
-    else pauseStream();
-  }, [pauseStream, resumeStream, streaming]);
+    if (streaming) {
+      if (streamMode === "synthetic") {
+        synthetic.resumeStream();
+        live.pauseStream();
+      } else {
+        live.resumeStream();
+        synthetic.pauseStream();
+      }
+    } else {
+      synthetic.pauseStream();
+      live.pauseStream();
+    }
+  }, [live, synthetic, streamMode, streaming]);
 
   useEffect(() => {
     windowMsRef.current = windowSeconds * 1000;
