@@ -55,6 +55,15 @@ Real-time, canvas-based orderflow bifurcation inspired by Sankey diagrams. The t
 - Normalize events into `OrderEvent` `{ id, side, volume, timestamp }` (extend as needed for animation state internally).
 - Rolling aggregates: in-memory queue with window cutoff; EMA smoothing on share to avoid jitter. Widening the window uses retained orders only (no backfill yet).
 - Controls: pause/resume stream, tweak time window, desktop separation slider; optionally add slow-mo for demos.
+- Live Hyperliquid mode: subscribe to `trades` via `wss://api.hyperliquid.xyz/ws` for `BTC`, normalize side (buy/sell), compute notional volume (`size * price`), drop dupes by trade id, and feed the same pipeline as synthetic.
+- Animation flow: each trade queues into the rolling window, increments per-side volume/count, spawns a particle (radius ~ log(volume)), updates smoothed share, and the canvas loop renders ribbons (proportional thickness) plus particles moving along the ribbon centerlines.
+- Modes and controls at a glance: Synthetic (RxJS demo) vs Live Hyperliquid trades; pause/resume; lookback slider (drives window + EMA); desktop separation slider for gap; canvas pills show only %, while Stats Panel shows notional volume and trade counts.
+- Window behavior: trades are deduped by id; window change triggers a full recalc of totals (no historic backfill); padding and separation tuned for desktop/mobile.
+- Pause behavior: the toggle unsubscribes live and halts the synthetic stream; the canvas loop keeps running but the rolling window continues to age out trades, so shares decay as the window empties.
+- Mode switching: flipping Synthetic ↔ Live only changes future arrivals. Existing trades stay in the window until they age out, so shares reflect a mix until the old trades expire (no automatic flush).
+- Rendering model: canvas loop owns ribbons/particles; ribbons reflect smoothed share with min-height clamps; particles are log-scaled by volume. Percent pills show only share; volumes/counts live in the stats panel. Separation slider is desktop-only.
+- Live trade parsing: `trades` channel on `wss://api.hyperliquid.xyz/ws`, sides normalized (`b*` = buy, else sell), notional = size × price, deduped by trade id. Currently hardcoded to BTC.
+- Drop rules: malformed live trades (non-numeric price/size) are skipped; duplicate trade ids are deduped; the rolling window prunes any trade older than the lookback; particle pool caps visuals only (totals remain).
 
 ---
 
@@ -96,6 +105,13 @@ bun dev        # or npm run dev
 # build
 bun run build.ts
 ```
+
+---
+
+## Docker Notes
+
+- Dockerfile is multi-stage (Bun) with `deps` → `builder` → `runner`; production image runs `bun run start` on port 3000 with telemetry off.
+- docker-compose targets the `deps` stage for dev (`bun run dev`) and bind-mounts the repo, `node_modules`, and `.next` for HMR; healthcheck points to `/api/health` (add or adjust if needed).
 
 ---
 
