@@ -139,6 +139,26 @@ export default function Home() {
                   can briefly reflect a mix of both sources.
                 </li>
                 <li>
+                  Window mechanics: time-ordered queue with trade-id dedupe;
+                  lookback change triggers a full recalc (no historic backfill);
+                  EMA smooths share; window changes do not flush the queue.
+                </li>
+                <li>
+                  Live trade parsing: trades channel on `wss://api.hyperliquid.xyz/ws`
+                  (BTC), sides normalized (`b*` = buy, else sell), notional =
+                  size×price, deduped by id.
+                </li>
+                <li>
+                  Rendering: canvas loop owns ribbons/particles; ribbons reflect
+                  smoothed share with min-height clamps; particles are log-scaled by
+                  volume; pills show share only; separation slider is desktop-only.
+                </li>
+                <li>
+                  Drop rules: malformed live trades (non-numeric price/size) are
+                  skipped; duplicate trade ids are deduped; the rolling window prunes
+                  trades older than the lookback; particle pool caps visuals only.
+                </li>
+                <li>
                   Canvas is decoupled from React via refs, ready for the RxJS
                   stream from <code>docs/PROBLEM_DOC.md</code>.
                 </li>
