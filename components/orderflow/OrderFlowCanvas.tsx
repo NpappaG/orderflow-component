@@ -58,6 +58,7 @@ export function OrderFlowCanvas({
   const particlesRef = useRef<Particle[]>([]);
   const queueRef = useRef<OrderEvent[]>([]);
   const totalsRef = useRef({ buy: 0, sell: 0 });
+  const countsRef = useRef({ buy: 0, sell: 0 });
   const statsRef = useRef<OrderflowStats>({ buyShare: 0.5, sellShare: 0.5 });
   const windowMsRef = useRef(windowSeconds * 1000);
   const animationRef = useRef<number | null>(null);
@@ -70,6 +71,8 @@ export function OrderFlowCanvas({
       queueRef.current.push(order);
       if (order.side === "buy") totalsRef.current.buy += order.volume;
       else totalsRef.current.sell += order.volume;
+      if (order.side === "buy") countsRef.current.buy += 1;
+      else countsRef.current.sell += 1;
       totalsRef.current.buy = Math.max(0, totalsRef.current.buy);
       totalsRef.current.sell = Math.max(0, totalsRef.current.sell);
       spawnParticle(order);
@@ -172,8 +175,8 @@ export function OrderFlowCanvas({
 
     const cssWidth = rect.width;
     const isMobile = cssWidth < 640;
-    const leftPad = cssWidth * (isMobile ? 0.1 : 0.12);
-    const rightPad = cssWidth * (isMobile ? 0.28 : 0.22); // reserve space for chips
+    const leftPad = cssWidth * (isMobile ? 0.06 : 0.08);
+    const rightPad = cssWidth * (isMobile ? 0.30 : 0.32); // reserve space for chips, pull end left
     const originX = leftPad;
     const endX = Math.max(originX + 120, cssWidth - rightPad);
     const span = endX - originX;
@@ -278,12 +281,15 @@ export function OrderFlowCanvas({
       const sellPct = formatter.format(1 - buyShare);
       const buyVol = totalsRef.current.buy;
       const sellVol = totalsRef.current.sell;
+      const buyCount = countsRef.current.buy;
+      const sellCount = countsRef.current.sell;
 
       const padX = 8;
       const isMobile = ctx.canvas.width / (window.devicePixelRatio || 1) < 640;
       const headlineSize = isMobile ? 12 : 14;
       const subSize = isMobile ? 11 : 12;
-      const chipHeight = isMobile ? 28 : 32;
+      const clamp = (v: number, min: number, max: number) =>
+        Math.max(min, Math.min(max, v));
 
       const drawChip = (
         x: number,
@@ -292,14 +298,17 @@ export function OrderFlowCanvas({
         subtext: string,
         color: string
       ) => {
+        const thickness =
+          color === "rgba(74, 222, 128, 0.8)"
+            ? tipSample.buyBot - tipSample.buyTop
+            : tipSample.sellBot - tipSample.sellTop;
+        const h = clamp(thickness, 18, 60);
         ctx.save();
         ctx.font = `${headlineSize}px 'Inter', system-ui, -apple-system`;
-        ctx.textBaseline = "middle";
         const textWidth = ctx.measureText(text).width;
         ctx.font = `${subSize}px 'Inter', system-ui, -apple-system`;
         const subWidth = ctx.measureText(subtext).width;
-        const w = Math.max(textWidth, subWidth) + padX * 2 + 6;
-        const h = chipHeight;
+        const w = textWidth + padX * 2 + 6; // pill only wraps the percent text
         const r = 8;
         ctx.fillStyle = color;
         ctx.globalAlpha = 0.85;
@@ -312,12 +321,17 @@ export function OrderFlowCanvas({
         ctx.lineTo(x, y + h / 2);
         ctx.closePath();
         ctx.fill();
-        ctx.fillStyle = "#0a0a0a";
+        // Percent inside pill
         ctx.globalAlpha = 1;
         ctx.font = `${headlineSize}px 'Inter', system-ui, -apple-system`;
-        ctx.fillText(text, x + padX + 2, y - 6);
+        ctx.textBaseline = "middle";
+        ctx.fillStyle = "#0a0a0a";
+        ctx.fillText(text, x + padX + 2, y);
+        // Volume outside, to the right
         ctx.font = `${subSize}px 'Inter', system-ui, -apple-system`;
-        ctx.fillText(subtext, x + padX + 2, y + 10);
+        ctx.textBaseline = "middle";
+        ctx.fillStyle = "#ffffff";
+        ctx.fillText(subtext, x + w + 8, y);
         ctx.restore();
       };
 
@@ -330,14 +344,14 @@ export function OrderFlowCanvas({
         chipX,
         buyY,
         `Buy ${buyPct}`,
-        `${Math.round(buyVol)} vol`,
+        `Vol: ${Math.round(buyVol)} | Trade Ct: ${buyCount}`,
         "rgba(74, 222, 128, 0.8)"
       );
       drawChip(
         chipX,
         sellY,
         `Sell ${sellPct}`,
-        `${Math.round(sellVol)} vol`,
+        `Vol: ${Math.round(sellVol)} | Trade Ct: ${sellCount}`,
         "rgba(248, 113, 113, 0.8)"
       );
     }
